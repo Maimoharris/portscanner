@@ -1,32 +1,48 @@
-#Basic Port Scanner Developed By Maimo Harris Alias Dracula
+# Multithreaded Port Scanner by Maimo Harris Alias Dracula
 import socket
 from IPy import IP
-#Here we convert domain name to IP before we scan
+from concurrent.futures import ThreadPoolExecutor
+import argparse
+# Convert domain or IP string to proper IP address
 def convert_to_ip(host):
     try:
-        main_ip=IP(host)
-        return main_ip
+        return IP(host)
     except ValueError:
         return socket.gethostbyname(host)
-#Here is the main scanning options
-def scanner(host,port):
+# Attempt to receive banner from open port
+def banner(sock):
     try:
-        engine=socket.socket()
-        engine.connect((host,port))
-        #seting sacn time to 1 second
+        return sock.recv(1024).decode().strip()
+    except:
+        return ""
+# Function to scan a single port
+def scanner(host, port):
+    try:
+        engine = socket.socket()
         engine.settimeout(1)
-        ban=banner(engine).decode().strip('\n')
-        try:
-            print(f"Open {port} : {ban}")
-        except:
-            print(f"Open {port}")
+        engine.connect((host, port))
+        ban = banner(engine)
+        print(f"[+] Open {port} : {ban}" if ban else f"[+] Open {port}")
+        engine.close()
     except:
         pass
-#here is th option to obtain the service runing in the port
-def banner(header):
-    return header.recv(1024)
-host=input("Enter Host Address:")
-#here is where we optain all the ports in a specific range
-for port in range(63535):
-    convert_to_ip(host)
-    scanner(host,port)
+
+def main():
+    # Set up command-line argument parsing
+    parser = argparse.ArgumentParser(description="Multithreaded Port Scanner by Maimo Harris Alias Dracula")
+    parser.add_argument('--host', required=True, help='Target IP address or domain')
+    parser.add_argument('--start-port', type=int, default=1, help='Start of port range (default: 1)')
+    parser.add_argument('--end-port', type=int, default=65534, help='End of port range (default: 65534)')
+    parser.add_argument('--threads', type=int, default=100, help='Number of threads to use (default: 100)')
+
+    args = parser.parse_args()
+    # Resolve host to IP
+    target = convert_to_ip(args.host)
+    print(f"\n[!] Scanning {target} from port {args.start_port} to {args.end_port} using {args.threads} threads...\n")
+    # Use a ThreadPoolExecutor to scan ports concurrently
+    with ThreadPoolExecutor(args.threads) as executor:
+        for port in range(args.start_port, args.end_port + 1):
+            executor.submit(scanner, target, port)
+# Entry point
+if __name__ == "__main__":
+    main()
